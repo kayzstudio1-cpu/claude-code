@@ -184,7 +184,21 @@
   }
 
   const ttEditor = () => firstOf('.public-DraftEditor-content[contenteditable="true"]', '[data-contents] [contenteditable="true"]') || captionBox();
-  const ttStarted = () => ttEditor() || /uploaded|uploading|\d+%/i.test(document.body.innerText.slice(0, 20000)) && !/select video to upload/i.test(document.body.innerText.slice(0, 5000));
+  const ttStarted = () => ttEditor() || /uploaded|uploading/i.test(document.body.innerText.slice(0, 20000)) && !/select video to upload/i.test(document.body.innerText.slice(0, 5000));
+  // TikTok shows a "Log in" prompt (even on the upload page) when the session is missing or expired.
+  const ttNeedsLogin = () => Boolean(byText('button, [role="button"], a, div', /^(log in|login|create account)$/i));
+  const ttFailed = () => byText('button, [role="button"]', /^retry$/i);
+
+  async function ttWaitForLogin() {
+    if (!ttNeedsLogin()) return;
+    step = 'login';
+    banner('Please log in to TikTok in this tab.', "TikTok isn't letting this browser upload until you log in. I'll carry on by myself once you're in.", 'warn');
+    await progress('working', 'Waiting for you to log in to TikTok');
+    const ok = await waitFor(() => !ttNeedsLogin(), LOGIN_WAIT);
+    if (!ok) throw new Error('Still not logged in to TikTok. Log in, then press POST EVERYWHERE again.');
+    await sleep(2000);
+    if (!ttOnUpload()) { location.assign(TT_UPLOAD[0]); await sleep(60000); }
+  }
 
   async function tiktok(file, meta) {
     at('find-upload', 'Looking for the TikTok upload button…', 'Log in if TikTok asks you to.');
@@ -199,7 +213,9 @@
     }, LOGIN_WAIT, "I can't find TikTok's upload button yet.");
     if (!input) throw new Error("Couldn't find TikTok's upload button.");
     sessionStorage.removeItem('jarvisTT');
-    setFiles(input, file);
+    await ttWaitForLogin();
+    at('add-video', 'Adding your video…');
+    setFiles(deep('input[type=file][accept*="video"]') || deep('input[type=file]') || input, file);
 
     // Backup: if TikTok ignored the file, drop it onto the upload area like a drag-and-drop.
     if (!(await waitFor(ttStarted, 8000))) {
@@ -218,6 +234,13 @@
     if (!editor) throw new Error("Video added ✓ but I couldn't find the caption box. Paste the caption yourself.");
     await sleep(2500); // TikTok fills in the file name first; wait so we replace it
     typeInto(editor, meta.caption);
+    // Make sure the upload didn't fail behind our back (e.g. a "Retry" button after a session problem).
+    await sleep(3000);
+    if (ttFailed() || ttNeedsLogin()) {
+      throw new Error(ttNeedsLogin()
+        ? "TikTok logged you out during the upload. Log in to TikTok, then press POST EVERYWHERE again."
+        : 'TikTok says the upload failed (it shows "Retry"). Click Retry, or press POST EVERYWHERE again.');
+    }
   }
 
   /* ---------- Instagram ---------- */
