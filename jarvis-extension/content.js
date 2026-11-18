@@ -160,15 +160,61 @@
   };
 
   /* ---------- TikTok ---------- */
+  const TT_UPLOAD = ['https://www.tiktok.com/tiktokstudio/upload', 'https://www.tiktok.com/upload', 'https://www.tiktok.com/creator-center/upload'];
+  const ttOnUpload = () => /upload/i.test(location.pathname);
+  const ttOnLogin = () => /login|signup|passport/i.test(location.pathname);
+
+  // TikTok often drops you on the feed or a menu page (e.g. after logging in). Steer back to the upload page.
+  function ttSteer() {
+    if (ttOnUpload() || ttOnLogin()) return false;
+    const tries = Number(sessionStorage.getItem('jarvisTT') || 0);
+    if (tries >= TT_UPLOAD.length) return false;
+    sessionStorage.setItem('jarvisTT', String(tries + 1));
+    banner('Taking you to TikTok\'s upload page…');
+    location.assign(TT_UPLOAD[tries]);
+    return true;
+  }
+
+  function dropOn(target, file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      target.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
+    }
+  }
+
+  const ttEditor = () => firstOf('.public-DraftEditor-content[contenteditable="true"]', '[data-contents] [contenteditable="true"]') || captionBox();
+  const ttStarted = () => ttEditor() || /uploaded|uploading|\d+%/i.test(document.body.innerText.slice(0, 20000)) && !/select video to upload/i.test(document.body.innerText.slice(0, 5000));
+
   async function tiktok(file, meta) {
     at('find-upload', 'Looking for the TikTok upload button…', 'Log in if TikTok asks you to.');
-    const input = await waitFor(() => firstOf('input[type=file][accept*="video"]', 'input[type=file]'), LOGIN_WAIT,
-      "I can't find TikTok's upload button yet.");
+    let steerAt = Date.now() + 4000;
+    const input = await waitFor(() => {
+      const found = firstOf('input[type=file][accept*="video"]', 'input[type=file]');
+      if (found) return found;
+      // Give a page a few seconds to settle (SPA redirects), then steer to the upload page.
+      if (Date.now() > steerAt) { steerAt = Infinity; if (ttSteer()) return null; }
+      if (!ttOnUpload() && !ttOnLogin()) steerAt = Math.min(steerAt, Date.now() + 4000);
+      return null;
+    }, LOGIN_WAIT, "I can't find TikTok's upload button yet.");
     if (!input) throw new Error("Couldn't find TikTok's upload button.");
+    sessionStorage.removeItem('jarvisTT');
     setFiles(input, file);
+
+    // Backup: if TikTok ignored the file, drop it onto the upload area like a drag-and-drop.
+    if (!(await waitFor(ttStarted, 8000))) {
+      at('drop-fallback', 'Trying another way to add the video…');
+      let zone = input.parentElement;
+      for (let i = 0; i < 4 && zone && !visible(zone); i += 1) zone = zone.parentElement;
+      const target = byText('div, button, [role="button"]', /select (a )?video|drag and drop|select file/i) || zone || document.body;
+      dropOn(target, file);
+      if (!(await waitFor(ttStarted, 8000))) {
+        throw new Error('TikTok didn\'t accept the video automatically. Click "Select video" and pick it yourself. The caption is ready under "Copy caption".');
+      }
+    }
+
     at('find-caption', 'Video added ✓ Adding your caption…');
-    const editor = await waitFor(() => firstOf('.public-DraftEditor-content[contenteditable="true"]', '[data-contents] [contenteditable="true"]') || captionBox(),
-      120000, 'Video added ✓ but I can\'t find the caption box.');
+    const editor = await waitFor(ttEditor, 120000, 'Video added ✓ but I can\'t find the caption box.');
     if (!editor) throw new Error("Video added ✓ but I couldn't find the caption box. Paste the caption yourself.");
     await sleep(2500); // TikTok fills in the file name first; wait so we replace it
     typeInto(editor, meta.caption);
