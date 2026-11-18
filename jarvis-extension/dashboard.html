@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jarvis Poster</title>
+  <link rel="icon" href="icons/32.png">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><img src="icons/48.png" alt="">JARVIS <b>POSTER</b></div>
+    <button id="voice" class="chip">Voice: on</button>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>1 · Video</h2>
+      <label id="drop" class="drop">
+        <input id="file" type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v,.webm" hidden>
+        <div id="dropEmpty"><div class="big">&#9654;</div><b>Drop a video here</b> or click to choose<br><span class="muted">Vertical 9:16 works best everywhere</span></div>
+        <video id="preview" class="hidden" controls muted></video>
+      </label>
+      <div id="fileMeta" class="muted small"></div>
+    </section>
+
+    <section class="panel">
+      <h2>2 · Words</h2>
+      <label class="field"><span>YouTube title</span><input id="title" maxlength="100" placeholder="What is this video called?"></label>
+      <label class="field"><span>Caption</span><textarea id="caption" rows="5" placeholder="One caption for every platform"></textarea></label>
+      <label class="field"><span>Hashtags</span><input id="tags" placeholder="fitness, motivation, dailyroutine"></label>
+      <div id="count" class="muted small right">0 / 2200</div>
+    </section>
+
+    <section class="panel">
+      <h2>3 · Where</h2>
+      <div class="plats">
+        <label class="plat"><input type="checkbox" value="tiktok" checked><span class="badge tt">TT</span>TikTok<em data-status="tiktok"></em></label>
+        <label class="plat"><input type="checkbox" value="instagram" checked><span class="badge ig">IG</span>Instagram<em data-status="instagram"></em></label>
+        <label class="plat"><input type="checkbox" value="youtube" checked><span class="badge yt">YT</span>YouTube<em data-status="youtube"></em></label>
+      </div>
+      <button id="go" class="go" disabled>POST EVERYWHERE</button>
+      <p id="hint" class="muted small center">Choose a video to begin.</p>
+      <ol class="muted small how">
+        <li>Jarvis opens each site in a new tab. Log in there if it asks, the normal way.</li>
+        <li>It adds your video and caption to each upload form.</li>
+        <li>You check each tab and press <b>Post</b>, <b>Share</b> or <b>Publish</b>.</li>
+      </ol>
+    </section>
+  </main>
+  <script src="db.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
