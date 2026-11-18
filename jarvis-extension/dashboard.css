@@ -35,3 +35,25 @@ textarea { resize:vertical; }
 .how { padding-left:18px; margin:14px 0 0; } .how li { margin-bottom:4px; }
 .muted { color:var(--muted); } .small { font-size:12.5px; } .right { text-align:right; } .center { text-align:center; }
 .hidden { display:none !important; }
+.wide { grid-column: 1 / -1; }
+.ideas-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap:24px; }
+.btn { border:1px solid var(--line2); background:rgba(62,232,255,.12); color:var(--text); padding:9px 14px; border-radius:8px; cursor:pointer; font:600 13px system-ui; }
+.btn:hover:not(:disabled) { border-color:var(--accent); }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.idea-list { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+.idea-list:empty, .tag-list:empty { display:none; }
+.idea-list h3 { margin:6px 0 2px; font:700 11px ui-monospace,monospace; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; }
+.idea { text-align:left; background:rgba(0,0,0,.25); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 10px; cursor:pointer; font:inherit; white-space:pre-wrap; }
+.idea:hover { border-color:var(--accent); background:rgba(62,232,255,.06); }
+.idea.used { border-color:var(--ok); }
+.tag-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.tag { border:1px solid var(--line); background:rgba(0,0,0,.25); color:var(--text); border-radius:99px; padding:4px 10px; cursor:pointer; font:12px system-ui; }
+.tag:hover { border-color:var(--accent); }
+.tag.used { border-color:var(--ok); color:var(--ok); }
+.thumb-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.check { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; }
+.check input { accent-color:var(--accent); }
+.thumbs { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:10px; }
+.thumbs canvas { width:100%; aspect-ratio:16/9; border-radius:8px; border:2px solid transparent; cursor:pointer; background:#000; }
+.thumbs canvas.sel { border-color:var(--accent); box-shadow:0 0 16px rgba(62,232,255,.4); }
+.row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }

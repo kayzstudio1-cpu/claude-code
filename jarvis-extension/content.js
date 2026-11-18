@@ -167,7 +167,23 @@
     if (desc) typeInto(desc, meta.caption);
     const notForKids = document.querySelector('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
     if (notForKids) notForKids.click();
+    if (meta.thumb) await youtubeThumb();
   }
+
+  // Best effort: custom thumbnails need a verified YouTube channel, so a miss is not an error.
+  async function youtubeThumb() {
+    try {
+      const r = await send({ type: 'thumb' });
+      if (!r) return;
+      const bin = atob(r.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j += 1) bytes[j] = bin.charCodeAt(j);
+      const input = await waitFor(() => document.querySelector('ytcp-thumbnails-compact-editor-uploader input[type=file], ytcp-uploads-dialog input#file-loader, ytcp-uploads-dialog input[type=file][accept*="image"]'), 15000);
+      if (input) setFiles(input, new File([bytes], 'thumbnail.jpg', { type: 'image/jpeg' }));
+      else thumbMissed = true;
+    } catch { thumbMissed = true; }
+  }
+  let thumbMissed = false;
 
   const FILLERS = { tiktok, instagram, youtube };
   const HOSTS = { tiktok: 'www.tiktok.com', instagram: 'www.instagram.com', youtube: 'studio.youtube.com' };
@@ -185,7 +201,7 @@
       await report('working', 'Filling in the upload form');
       const file = await loadVideo();
       await FILLERS[job.platform](file, job.meta);
-      banner('Ready to post ✓', FINISH[job.platform], 'ok');
+      banner('Ready to post ✓', FINISH[job.platform] + (thumbMissed ? ' Add the thumbnail you downloaded from Jarvis yourself.' : ''), 'ok');
       await report('ready', FINISH[job.platform]);
     } catch (err) {
       banner(err.message, 'Use "Copy caption" below to paste it yourself.', 'err');

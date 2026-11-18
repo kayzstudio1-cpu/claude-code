@@ -46,8 +46,36 @@
         <li>You check each tab and press <b>Post</b>, <b>Share</b> or <b>Publish</b>.</li>
       </ol>
     </section>
+
+    <section class="panel wide" id="ideas">
+      <h2>&#10022; Ideas</h2>
+      <div class="ideas-grid">
+        <div>
+          <label class="field"><span>What's the video about?</span>
+            <input id="topic" placeholder="e.g. my 5am morning routine for more energy"></label>
+          <button id="suggest" class="btn">&#10022; Suggest titles &amp; captions</button>
+          <span id="aiNote" class="muted small"></span>
+          <div id="titleIdeas" class="idea-list"></div>
+          <div id="captionIdeas" class="idea-list"></div>
+          <div id="tagIdeas" class="tag-list"></div>
+        </div>
+        <div>
+          <div class="thumb-head">
+            <button id="frames" class="btn" disabled>&#9635; Find thumbnail frames</button>
+            <label class="check"><input type="checkbox" id="thumbText" checked> Put title on it</label>
+          </div>
+          <p class="muted small" id="thumbNote">Pick a video first. Jarvis scans it and suggests the clearest, brightest moments.</p>
+          <div id="thumbs" class="thumbs"></div>
+          <div id="thumbActions" class="row hidden">
+            <button id="dlYt" class="btn">Download YouTube thumbnail</button>
+            <button id="dlCover" class="btn">Download TikTok/IG cover</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   <script src="db.js"></script>
+  <script src="ideas.js"></script>
   <script src="dashboard.js"></script>
 </body>
 </html>

@@ -21,6 +21,17 @@ Post one video to **TikTok**, **Instagram** and **YouTube** from Chrome, using t
 
 If a site changes its layout and Jarvis gets stuck, the box says what it couldn't do. Click **Copy caption** in the box to paste the caption yourself.
 
+## Ideas: titles, captions, hashtags and thumbnails
+
+The **✦ Ideas** panel at the bottom of the dashboard:
+
+- **Suggest titles & captions:** type what the video is about and click the button. Click any suggestion to use it, and click hashtags to add them.
+  - If your computer supports **Chrome's built-in AI** (Gemini Nano, free and running on your own computer), the ideas are written by AI. The first time, Chrome downloads the model, which takes a few minutes.
+  - Otherwise you get ideas from proven hook templates. Click again to reshuffle.
+- **Thumbnails:** when you pick a video, Jarvis scans it and suggests the 4 clearest, brightest moments, with your title in big bold text (untick **Put title on it** for a clean frame). Click one to choose it.
+  - Jarvis tries to add the chosen thumbnail to YouTube automatically. YouTube only allows custom thumbnails on **verified** channels; verify yours free at youtube.com/verify.
+  - **Download TikTok/IG cover** gives you a 1080×1920 version you can pick as the cover inside TikTok or Instagram.
+
 ## Notes
 
 - Your video stays on your computer. Jarvis only puts it into each site's own upload form, the same as if you chose it yourself.

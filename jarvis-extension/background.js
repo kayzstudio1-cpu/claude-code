@@ -72,6 +72,10 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         const part = v.blob.slice(msg.i * CHUNK, (msg.i + 1) * CHUNK);
         return { data: toBase64(await part.arrayBuffer()) };
       }
+      case 'thumb': {
+        const blob = await JarvisDB.get('thumb');
+        return blob ? { data: toBase64(await blob.arrayBuffer()) } : null;
+      }
       case 'progress': {
         const jobs = await getJobs();
         const job = sender.tab && jobs[sender.tab.id];

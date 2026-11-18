@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jarvis Poster",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Post one video to TikTok, Instagram and YouTube at once, using the accounts you're already logged in to.",
   "action": {
     "default_title": "Open Jarvis Poster",

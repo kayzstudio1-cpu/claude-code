@@ -40,6 +40,7 @@ async function useFile(file) {
   $('#fileMeta').textContent = `${file.name} · ${(file.size / 1048576).toFixed(1)} MB`;
   if (!$('#title').value) $('#title').value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
   refresh();
+  document.dispatchEvent(new CustomEvent('jarvis:video'));
 }
 
 $('#file').addEventListener('change', (e) => useFile(e.target.files[0]));
@@ -56,7 +57,7 @@ $('#go').addEventListener('click', async () => {
   $('#go').disabled = true;
   document.querySelectorAll('[data-status]').forEach((e) => { e.textContent = ''; e.className = ''; });
   speak(`Opening ${platforms.length} upload page${platforms.length > 1 ? 's' : ''}. Log in if asked, and I'll fill everything in.`);
-  const r = await chrome.runtime.sendMessage({ type: 'launch', platforms, meta: { title: $('#title').value.trim(), caption: fullCaption() } });
+  const r = await chrome.runtime.sendMessage({ type: 'launch', platforms, meta: { title: $('#title').value.trim(), caption: fullCaption(), thumb: Boolean(window.jarvisThumb) } });
   if (r && r.error) { $('#hint').textContent = r.error; }
   $('#go').disabled = false;
 });
