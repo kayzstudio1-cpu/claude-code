@@ -1,0 +1,49 @@
+name: Build Jarvis Poster
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'jarvis-poster/**'
+      - '.github/workflows/jarvis-poster-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+            artifact: Jarvis-Poster-Windows
+            files: jarvis-poster/dist/*.exe
+          - os: macos-latest
+            target: --mac
+            artifact: Jarvis-Poster-Mac
+            files: jarvis-poster/dist/*.dmg
+          - os: ubuntu-latest
+            target: --linux
+            artifact: Jarvis-Poster-Linux
+            files: jarvis-poster/dist/*.AppImage
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: jarvis-poster
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm test
+      - run: npx electron-builder ${{ matrix.target }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error

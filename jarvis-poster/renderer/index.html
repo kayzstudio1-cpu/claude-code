@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src file:">
+  <title>Jarvis Poster</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-dot"></span>JARVIS <b>POSTER</b></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="mission">Mission</button>
+      <button class="tab" data-view="accounts">Accounts</button>
+      <button class="tab" data-view="history">History</button>
+    </nav>
+    <div class="topbar-right">
+      <button id="voiceToggle" class="chip" title="Spoken replies">Voice: on</button>
+      <span id="clock" class="clock">--:--</span>
+    </div>
+  </header>
+
+  <!-- MISSION -->
+  <main id="view-mission" class="view active">
+    <section class="col col-left panel">
+      <div class="core-wrap">
+        <div class="core" id="core">
+          <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+          <div class="core-center"></div>
+        </div>
+        <div id="coreStatus" class="core-status">SYSTEMS ONLINE</div>
+      </div>
+      <form id="commandForm" class="command">
+        <span class="prompt">&gt;</span>
+        <input id="commandInput" autocomplete="off" placeholder="Try: post to tiktok and youtube">
+      </form>
+      <div class="log" id="log" aria-live="polite"></div>
+    </section>
+
+    <section class="col col-center panel">
+      <h2 class="panel-title">Content</h2>
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="drop-empty" id="dropEmpty">
+          <div class="drop-icon">&#9654;</div>
+          <p><b>Drop a video here</b> or click to browse</p>
+          <p class="muted">MP4 / MOV / WEBM &middot; vertical 9:16 works best for all three</p>
+        </div>
+        <video id="preview" class="preview hidden" controls muted></video>
+      </div>
+      <div id="fileMeta" class="file-meta muted"></div>
+      <label class="field"><span>Title <em class="muted">(YouTube)</em></span>
+        <input id="title" maxlength="100" placeholder="What is this video called?"></label>
+      <label class="field"><span>Caption</span>
+        <textarea id="caption" rows="5" maxlength="2000" placeholder="Write one caption — it goes to every platform."></textarea></label>
+      <label class="field"><span>Hashtags</span>
+        <input id="tags" placeholder="fitness, motivation, dailyroutine"></label>
+      <div class="counter muted" id="counter">0 / 2200</div>
+    </section>
+
+    <section class="col col-right panel">
+      <h2 class="panel-title">Platforms</h2>
+      <div class="platforms" id="platforms"></div>
+
+      <div class="options">
+        <label class="field inline"><span>Visibility</span>
+          <select id="privacy">
+            <option value="public">Public</option>
+            <option value="unlisted">Unlisted / friends</option>
+            <option value="private">Private</option>
+          </select></label>
+        <label class="check"><input type="checkbox" id="shorts" checked> Mark YouTube upload as a Short</label>
+        <label class="check"><input type="checkbox" id="shareToFeed" checked> Also show Reel on Instagram grid</label>
+      </div>
+
+      <button id="launch" class="launch" disabled>POST EVERYWHERE</button>
+      <p class="muted small" id="launchHint">Add a video and connect at least one account.</p>
+    </section>
+  </main>
+
+  <!-- ACCOUNTS -->
+  <main id="view-accounts" class="view">
+    <p class="intro muted">Each platform only allows posting through an app you register with them. Do this once per platform, paste the keys here, then press <b>Connect</b>. Keys are stored on this computer only<span id="encNote"></span>.</p>
+    <div class="accounts">
+      <article class="panel account" data-platform="youtube">
+        <header><span class="pl-badge yt">YT</span><h3>YouTube</h3><span class="state" data-state></span></header>
+        <ol class="steps muted">
+          <li>Open <a data-href="https://console.cloud.google.com/apis/library/youtube.googleapis.com">Google Cloud Console</a> and enable <b>YouTube Data API v3</b>.</li>
+          <li>Create an <b>OAuth client ID</b> of type <b>Desktop app</b>. Add yourself as a test user on the consent screen.</li>
+          <li>Paste the Client ID and Client Secret below.</li>
+        </ol>
+        <label class="field"><span>Client ID</span><input data-key="clientId"></label>
+        <label class="field"><span>Client Secret</span><input data-key="clientSecret" type="password"></label>
+        <div class="row"><button class="btn" data-save>Save</button><button class="btn primary" data-connect>Connect</button><button class="btn ghost" data-disconnect>Disconnect</button></div>
+      </article>
+
+      <article class="panel account" data-platform="tiktok">
+        <header><span class="pl-badge tt">TT</span><h3>TikTok</h3><span class="state" data-state></span></header>
+        <ol class="steps muted">
+          <li>Create an app at <a data-href="https://developers.tiktok.com/apps">TikTok for Developers</a>, add <b>Login Kit</b> and <b>Content Posting API</b>.</li>
+          <li>Platform: <b>Desktop</b>. Redirect URI: <code>http://localhost:53682/callback</code></li>
+          <li>Scopes: <code>user.info.basic</code>, <code>video.upload</code>, <code>video.publish</code>. Paste the keys below.</li>
+        </ol>
+        <label class="field"><span>Client Key</span><input data-key="clientKey"></label>
+        <label class="field"><span>Client Secret</span><input data-key="clientSecret" type="password"></label>
+        <label class="field"><span>Posting mode</span>
+          <select data-key="mode">
+            <option value="direct">Direct post to profile</option>
+            <option value="inbox">Send to TikTok drafts (finish in app)</option>
+          </select></label>
+        <div class="row"><button class="btn" data-save>Save</button><button class="btn primary" data-connect>Connect</button><button class="btn ghost" data-disconnect>Disconnect</button></div>
+      </article>
+
+      <article class="panel account" data-platform="instagram">
+        <header><span class="pl-badge ig">IG</span><h3>Instagram</h3><span class="state" data-state></span></header>
+        <ol class="steps muted">
+          <li>Your Instagram must be a <b>Professional</b> (Business or Creator) account.</li>
+          <li>Create an app at <a data-href="https://developers.facebook.com/apps">Meta for Developers</a> with the <b>Instagram</b> product and generate an access token with content-publish permission.</li>
+          <li>Paste the token and your Instagram user ID below.</li>
+        </ol>
+        <label class="field"><span>Access token</span><input data-key="accessToken" type="password"></label>
+        <label class="field"><span>Instagram user ID</span><input data-key="igUserId"></label>
+        <label class="field"><span>Token type</span>
+          <select data-key="apiHost">
+            <option value="graph.facebook.com">Facebook Login (graph.facebook.com)</option>
+            <option value="graph.instagram.com">Instagram Login (graph.instagram.com)</option>
+          </select></label>
+        <div class="row"><button class="btn" data-save>Save</button><button class="btn primary" data-connect>Verify</button><button class="btn ghost" data-disconnect>Disconnect</button></div>
+      </article>
+    </div>
+  </main>
+
+  <!-- HISTORY -->
+  <main id="view-history" class="view">
+    <div class="panel history-panel">
+      <h2 class="panel-title">Mission log</h2>
+      <div id="historyList" class="history"></div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
