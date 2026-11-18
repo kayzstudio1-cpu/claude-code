@@ -11,17 +11,47 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const visible = (el) => el && el.getClientRects().length > 0;
 
-  async function waitFor(fn, timeout = 60000) {
-    const end = Date.now() + timeout;
-    while (Date.now() < end) {
+  /* ---------- finding things, including inside shadow DOM and same-site iframes ---------- */
+  function roots() {
+    const list = [document];
+    for (const f of document.querySelectorAll('iframe')) {
+      try { if (f.contentDocument) list.push(f.contentDocument); } catch { /* other site */ }
+    }
+    return list;
+  }
+  function deepAll(selector) {
+    const out = [];
+    const walk = (root) => {
+      out.push(...root.querySelectorAll(selector));
+      for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot);
+    };
+    roots().forEach(walk);
+    return out;
+  }
+  function deep(selector) {
+    for (const r of roots()) { const el = r.querySelector(selector); if (el) return el; }
+    return deepAll(selector)[0] || null;
+  }
+  const firstOf = (...selectors) => { for (const s of selectors) { const el = deep(s); if (el) return el; } return null; };
+
+  function byText(selector, re, scope) {
+    const els = scope ? [...scope.querySelectorAll(selector)] : deepAll(selector);
+    return els.find((el) => visible(el) && re.test((el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim()));
+  }
+
+  let step = 'starting';
+  async function waitFor(fn, timeout, slowHint) {
+    const start = Date.now();
+    let hinted = false;
+    while (Date.now() - start < timeout) {
       try { const v = fn(); if (v) return v; } catch { /* keep waiting */ }
+      if (!hinted && slowHint && Date.now() - start > 15000) {
+        hinted = true;
+        banner(slowHint, 'If you\'re logged in and can see the upload page, click "Copy report" and paste it to Claude.', 'warn');
+      }
       await sleep(400);
     }
     return null;
-  }
-
-  function byText(selector, re, root = document) {
-    return [...root.querySelectorAll(selector)].find((el) => visible(el) && re.test((el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim()));
   }
 
   function setFiles(input, file) {
@@ -34,8 +64,9 @@
 
   function typeInto(el, text) {
     el.focus();
-    document.execCommand('selectAll', false, null);
-    document.execCommand('insertText', false, text);
+    const doc = el.ownerDocument;
+    doc.execCommand('selectAll', false, null);
+    doc.execCommand('insertText', false, text);
     const got = (el.innerText || el.value || '').replace(/\s+/g, ' ');
     if (!got.includes(text.replace(/\s+/g, ' ').slice(0, 15))) {
       const dt = new DataTransfer();
@@ -44,10 +75,35 @@
     }
   }
 
+  function bytesFromBase64(data) {
+    const bin = atob(data);
+    const bytes = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j += 1) bytes[j] = bin.charCodeAt(j);
+    return bytes;
+  }
+
+  /* ---------- diagnostics the user can paste to Claude ---------- */
+  function report() {
+    const label = (el) => (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+    return JSON.stringify({
+      jarvis: chrome.runtime.getManifest().version,
+      platform: job && job.platform,
+      step,
+      url: location.origin + location.pathname,
+      fileInputs: deepAll('input[type=file]').map((i) => `${i.accept || '*'}${visible(i) ? '' : ' (hidden)'}${i.closest('[role=dialog]') ? ' in-dialog' : ''}`),
+      textBoxes: deepAll('[contenteditable="true"], textarea').filter(visible).slice(0, 8).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).split(' ')[0]} [${e.getAttribute('aria-label') || e.getAttribute('placeholder') || ''}]`),
+      dialogs: deepAll('[role=dialog]').filter(visible).length,
+      buttons: deepAll('button, [role=button], a[role=link]').filter(visible).map(label).filter(Boolean).slice(0, 30),
+      iconLabels: [...new Set(deepAll('svg[aria-label]').map((s) => s.getAttribute('aria-label')))].slice(0, 25),
+      iframes: document.querySelectorAll('iframe').length
+    }, null, 1);
+  }
+
   /* ---------- on-page banner ---------- */
   let bannerText;
   let bannerSub;
   let caption = '';
+  let job = null;
   function banner(text, sub = '', kind = '') {
     if (!bannerText) {
       const host = document.createElement('div');
@@ -55,23 +111,26 @@
       const root = host.attachShadow({ mode: 'open' });
       root.innerHTML = `<style>
         .b{font:14px/1.4 system-ui,sans-serif;background:#0b1424;color:#e6f7ff;border:1px solid #3ee8ff;border-radius:12px;
-           padding:12px 14px;width:300px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+           padding:12px 14px;width:310px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
         .h{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.04em}
         .d{width:9px;height:9px;border-radius:50%;background:#3ee8ff;box-shadow:0 0 8px #3ee8ff}
-        .b.ok .d{background:#4dffa6;box-shadow:0 0 8px #4dffa6}.b.err{border-color:#ff5c7a}.b.err .d{background:#ff5c7a}
+        .b.ok .d{background:#4dffa6;box-shadow:0 0 8px #4dffa6}
+        .b.warn{border-color:#ffb547}.b.warn .d{background:#ffb547}
+        .b.err{border-color:#ff5c7a}.b.err .d{background:#ff5c7a}
         .t{margin-top:6px}.s{margin-top:4px;color:#9bb7c6;font-size:12.5px}
-        .r{display:flex;gap:6px;margin-top:10px}
+        .r{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
         button{font:600 12px system-ui;border-radius:7px;border:1px solid #3ee8ff;background:#123047;color:#e6f7ff;padding:6px 10px;cursor:pointer}
         button.x{margin-left:auto;border-color:transparent;background:none;color:#9bb7c6}</style>
         <div class="b"><div class="h"><span class="d"></span>JARVIS</div><div class="t"></div><div class="s"></div>
-        <div class="r"><button class="c">Copy caption</button><button class="x">Hide</button></div></div>`;
+        <div class="r"><button class="c">Copy caption</button><button class="rep">Copy report</button><button class="x">Hide</button></div></div>`;
       document.documentElement.append(host);
       bannerText = root.querySelector('.t');
       bannerSub = root.querySelector('.s');
-      root.querySelector('.c').onclick = async (e) => {
-        await navigator.clipboard.writeText(caption).catch(() => {});
-        e.target.textContent = 'Copied ✓';
+      const copy = async (btn, text, done) => {
+        try { await navigator.clipboard.writeText(text); btn.textContent = done; } catch { prompt('Copy this:', text); }
       };
+      root.querySelector('.c').onclick = (e) => copy(e.target, caption, 'Caption copied ✓');
+      root.querySelector('.rep').onclick = (e) => copy(e.target, report(), 'Report copied ✓');
       root.querySelector('.x').onclick = () => host.remove();
       banner.box = root.querySelector('.b');
     }
@@ -80,110 +139,119 @@
     bannerSub.textContent = sub;
   }
 
-  const report = (state, detail) => send({ type: 'progress', state, detail }).catch(() => {});
+  const progress = (state, detail) => send({ type: 'progress', state, detail }).catch(() => {});
+  function at(name, text, sub) { step = name; banner(text, sub || ''); }
 
   async function loadVideo() {
     const info = await send({ type: 'videoInfo' });
     const parts = [];
     for (let i = 0; i < info.chunks; i += 1) {
       const { data } = await send({ type: 'chunk', i });
-      const bin = atob(data);
-      const bytes = new Uint8Array(bin.length);
-      for (let j = 0; j < bin.length; j += 1) bytes[j] = bin.charCodeAt(j);
-      parts.push(bytes);
+      parts.push(bytesFromBase64(data));
       banner('Loading your video…', `${Math.round(((i + 1) / info.chunks) * 100)}%`);
     }
     return new File(parts, info.name, { type: info.type || 'video/mp4' });
   }
 
   const LOGIN_WAIT = 10 * 60 * 1000;
+  const captionBox = (scope) => {
+    const all = scope ? [...scope.querySelectorAll('[contenteditable="true"], [role="textbox"]')] : deepAll('[contenteditable="true"], [role="textbox"]');
+    return all.find(visible);
+  };
 
   /* ---------- TikTok ---------- */
   async function tiktok(file, meta) {
-    banner('Waiting for the TikTok upload page…', 'Log in if TikTok asks you to.');
-    const input = await waitFor(() => document.querySelector('input[type=file][accept*="video"]') || document.querySelector('input[type=file]'), LOGIN_WAIT);
+    at('find-upload', 'Looking for the TikTok upload button…', 'Log in if TikTok asks you to.');
+    const input = await waitFor(() => firstOf('input[type=file][accept*="video"]', 'input[type=file]'), LOGIN_WAIT,
+      "I can't find TikTok's upload button yet.");
     if (!input) throw new Error("Couldn't find TikTok's upload button.");
     setFiles(input, file);
-    banner('Video added. Adding caption…');
-    const editor = await waitFor(() => document.querySelector('.public-DraftEditor-content[contenteditable="true"]') ||
-      [...document.querySelectorAll('[contenteditable="true"]')].find(visible), 120000);
-    if (!editor) throw new Error("Video added, but I couldn't find the caption box. Paste the caption yourself.");
-    await sleep(2000); // TikTok fills in the file name first; wait so we replace it
+    at('find-caption', 'Video added ✓ Adding your caption…');
+    const editor = await waitFor(() => firstOf('.public-DraftEditor-content[contenteditable="true"]', '[data-contents] [contenteditable="true"]') || captionBox(),
+      120000, 'Video added ✓ but I can\'t find the caption box.');
+    if (!editor) throw new Error("Video added ✓ but I couldn't find the caption box. Paste the caption yourself.");
+    await sleep(2500); // TikTok fills in the file name first; wait so we replace it
     typeInto(editor, meta.caption);
   }
 
   /* ---------- Instagram ---------- */
   async function instagram(file, meta) {
-    banner('Waiting for Instagram…', 'Log in if Instagram asks you to.');
+    at('find-create', 'Looking for Instagram\'s Create button…', 'Log in if Instagram asks you to.');
     const create = await waitFor(() => {
-      const icon = document.querySelector('svg[aria-label="New post"], svg[aria-label="Create"]');
-      return icon && icon.closest('a, [role="button"], button');
-    }, LOGIN_WAIT);
+      const icon = deep('svg[aria-label="New post"], svg[aria-label="Create"], svg[aria-label="New Post"]');
+      return icon && icon.closest('a, [role="button"], [role="link"], button');
+    }, LOGIN_WAIT, "I can't find Instagram's Create (+) button yet.");
     if (!create) throw new Error("Couldn't find Instagram's Create button.");
     create.click();
-    await sleep(900);
-    const postItem = byText('a, [role="button"], [role="menuitem"], span', /^Post$/);
-    if (postItem) { postItem.click(); await sleep(900); }
+    await sleep(1200);
+    const postItem = byText('a, [role="button"], [role="link"], [role="menuitem"], span', /^Post$/);
+    if (postItem) { (postItem.closest('a, [role="button"], [role="link"], [role="menuitem"]') || postItem).click(); await sleep(1200); }
 
-    const input = await waitFor(() => document.querySelector('div[role="dialog"] input[type=file], form[enctype] input[type=file]'), 30000);
-    if (!input) throw new Error("Couldn't open Instagram's upload window.");
+    at('find-upload', 'Opening Instagram\'s upload window…');
+    const input = await waitFor(() => firstOf('[role="dialog"] input[type=file]', 'form[enctype] input[type=file]', 'input[type=file][accept*="video"]'), 30000,
+      "Instagram's upload window didn't open.");
+    if (!input) throw new Error("Couldn't open Instagram's upload window. Click Create → Post, then try again.");
     setFiles(input, file);
-    banner('Video added. Moving to the caption step…');
+    at('next-steps', 'Video added ✓ Moving to the caption step…');
 
-    const okBtn = await waitFor(() => byText('div[role="dialog"] button, div[role="dialog"] [role="button"]', /^OK$/), 6000);
+    const okBtn = await waitFor(() => byText('[role="dialog"] button, [role="dialog"] [role="button"]', /^OK$/), 6000);
     if (okBtn) okBtn.click();
-    for (let step = 0; step < 2; step += 1) {
-      const next = await waitFor(() => byText('div[role="dialog"] [role="button"], div[role="dialog"] button', /^Next$/), 90000);
-      if (!next) throw new Error('Video added, but I got stuck on the Next button. Click Next and paste the caption.');
+    for (let n = 0; n < 2; n += 1) {
+      step = `next-${n + 1}`;
+      const next = await waitFor(() => byText('[role="dialog"] [role="button"], [role="dialog"] button', /^Next$/), 90000,
+        'Video added ✓ waiting for the Next button…');
+      if (!next) throw new Error('Video added ✓ but I got stuck on the Next button. Click Next and paste the caption.');
       next.click();
-      await sleep(1800);
+      await sleep(2000);
     }
-    const editor = await waitFor(() => document.querySelector('div[role="dialog"] [contenteditable="true"][aria-label*="caption" i]') ||
-      [...document.querySelectorAll('div[role="dialog"] [contenteditable="true"]')].find(visible), 30000);
+    at('find-caption', 'Adding your caption…');
+    const editor = await waitFor(() => firstOf('[role="dialog"] [contenteditable="true"][aria-label*="caption" i]', '[aria-label*="caption" i][contenteditable="true"]') ||
+      captionBox(deep('[role="dialog"]')), 30000, "Can't find the caption box yet.");
     if (!editor) throw new Error("Couldn't find the caption box. Paste the caption yourself.");
     typeInto(editor, meta.caption);
   }
 
   /* ---------- YouTube Studio ---------- */
+  let thumbMissed = false;
   async function youtube(file, meta) {
-    banner('Waiting for YouTube Studio…', 'Log in if Google asks you to.');
-    let input = await waitFor(() => document.querySelector('ytcp-uploads-dialog input[type=file]'), 3000);
+    at('find-upload', 'Looking for YouTube\'s upload window…', 'Log in if Google asks you to.');
+    let input = await waitFor(() => firstOf('ytcp-uploads-dialog input[type=file]', 'ytcp-uploads-file-picker input[type=file]', 'input[type=file][name="Filedata"]'), 6000);
     if (!input) {
-      const createBtn = await waitFor(() => document.querySelector('#create-icon, ytcp-button#create-icon'), LOGIN_WAIT);
+      const createBtn = await waitFor(() => firstOf('#create-icon', 'ytcp-button#create-icon', '[aria-label="Create"]'), LOGIN_WAIT,
+        "I can't find YouTube Studio's Create button yet.");
       if (!createBtn) throw new Error("Couldn't find YouTube Studio's Create button.");
       createBtn.click();
-      const item = await waitFor(() => byText('tp-yt-paper-item, ytcp-ve, [role="menuitem"]', /upload videos?/i), 10000);
+      const item = await waitFor(() => firstOf('#text-item-0') || byText('tp-yt-paper-item, ytcp-ve, [role="menuitem"]', /upload videos?/i), 10000);
       if (item) item.click();
-      input = await waitFor(() => document.querySelector('ytcp-uploads-dialog input[type=file], input[type=file][name="Filedata"]'), 20000);
+      input = await waitFor(() => firstOf('ytcp-uploads-dialog input[type=file]', 'ytcp-uploads-file-picker input[type=file]', 'input[type=file][name="Filedata"]', 'input[type=file]'), 20000,
+        "YouTube's upload window didn't open.");
     }
-    if (!input) throw new Error("Couldn't open YouTube's upload window.");
+    if (!input) throw new Error("Couldn't open YouTube's upload window. Click Create → Upload videos, then try again.");
     setFiles(input, file);
-    banner('Video added. Adding title and description…');
-    const title = await waitFor(() => document.querySelector('#title-textarea #textbox'), 120000);
-    if (!title) throw new Error("Video added, but I couldn't find the title box.");
+    at('find-title', 'Video added ✓ Adding title and description…');
+    const title = await waitFor(() => firstOf('#title-textarea #textbox', 'ytcp-social-suggestions-textbox#title-textarea [contenteditable="true"]'), 120000,
+      'Video added ✓ waiting for the title box…');
+    if (!title) throw new Error("Video added ✓ but I couldn't find the title box.");
     await sleep(1500);
     typeInto(title, (meta.title || file.name.replace(/\.[^.]+$/, '')).slice(0, 100));
-    const desc = document.querySelector('#description-textarea #textbox');
+    const desc = firstOf('#description-textarea #textbox', 'ytcp-social-suggestions-textbox#description-textarea [contenteditable="true"]');
     if (desc) typeInto(desc, meta.caption);
-    const notForKids = document.querySelector('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
+    const notForKids = deep('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
     if (notForKids) notForKids.click();
     if (meta.thumb) await youtubeThumb();
   }
 
   // Best effort: custom thumbnails need a verified YouTube channel, so a miss is not an error.
   async function youtubeThumb() {
+    step = 'thumbnail';
     try {
       const r = await send({ type: 'thumb' });
       if (!r) return;
-      const bin = atob(r.data);
-      const bytes = new Uint8Array(bin.length);
-      for (let j = 0; j < bin.length; j += 1) bytes[j] = bin.charCodeAt(j);
-      const input = await waitFor(() => document.querySelector('ytcp-thumbnails-compact-editor-uploader input[type=file], ytcp-uploads-dialog input#file-loader, ytcp-uploads-dialog input[type=file][accept*="image"]'), 15000);
-      if (input) setFiles(input, new File([bytes], 'thumbnail.jpg', { type: 'image/jpeg' }));
+      const input = await waitFor(() => firstOf('ytcp-thumbnails-compact-editor-uploader input[type=file]', 'ytcp-uploads-dialog input#file-loader', 'ytcp-uploads-dialog input[type=file][accept*="image"]'), 15000);
+      if (input) setFiles(input, new File([bytesFromBase64(r.data)], 'thumbnail.jpg', { type: 'image/jpeg' }));
       else thumbMissed = true;
     } catch { thumbMissed = true; }
   }
-  let thumbMissed = false;
 
   const FILLERS = { tiktok, instagram, youtube };
   const HOSTS = { tiktok: 'www.tiktok.com', instagram: 'www.instagram.com', youtube: 'studio.youtube.com' };
@@ -194,18 +262,24 @@
   };
 
   (async () => {
-    const job = await send({ type: 'getJob' }).catch(() => null);
+    // The job is saved as the tab opens, so retry briefly in case this page loaded first.
+    for (let i = 0; i < 6 && !job; i += 1) {
+      job = await send({ type: 'getJob' }).catch(() => null);
+      if (!job) await sleep(500);
+    }
     if (!job || HOSTS[job.platform] !== location.hostname) return;
     caption = job.meta.caption;
     try {
-      await report('working', 'Filling in the upload form');
+      await progress('working', 'Filling in the upload form');
+      step = 'load-video';
       const file = await loadVideo();
       await FILLERS[job.platform](file, job.meta);
+      step = 'done';
       banner('Ready to post ✓', FINISH[job.platform] + (thumbMissed ? ' Add the thumbnail you downloaded from Jarvis yourself.' : ''), 'ok');
-      await report('ready', FINISH[job.platform]);
+      await progress('ready', FINISH[job.platform]);
     } catch (err) {
-      banner(err.message, 'Use "Copy caption" below to paste it yourself.', 'err');
-      await report('error', err.message);
+      banner(err.message, 'Use "Copy caption" to paste it yourself, or "Copy report" and send it to Claude so it can fix this.', 'err');
+      await progress('error', err.message);
     }
   })();
 })();

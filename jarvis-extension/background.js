@@ -3,7 +3,7 @@ importScripts('db.js');
 const UPLOAD_URLS = {
   tiktok: 'https://www.tiktok.com/tiktokstudio/upload',
   instagram: 'https://www.instagram.com/',
-  youtube: 'https://studio.youtube.com/'
+  youtube: 'https://www.youtube.com/upload'
 };
 const CHUNK = 4 * 1024 * 1024;
 let cachedVideo = null;
@@ -42,14 +42,17 @@ async function launch({ platforms, meta }) {
   cachedVideo = null;
   await loadVideo();
   const jobs = {};
+  await setJobs(jobs);
   let first = true;
   for (const platform of platforms) {
-    const tab = await chrome.tabs.create({ url: UPLOAD_URLS[platform], active: first });
+    // Create the tab blank, record the job, then navigate, so the page can never load before its job exists.
+    const tab = await chrome.tabs.create({ url: 'about:blank', active: first });
     first = false;
     jobs[tab.id] = { platform, meta, state: 'opened' };
+    await setJobs(jobs);
+    await chrome.tabs.update(tab.id, { url: UPLOAD_URLS[platform] });
     notify({ platform, state: 'opened', detail: 'Upload page opened' });
   }
-  await setJobs(jobs);
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
