@@ -8,13 +8,13 @@ It uses only the official platform APIs, so your accounts aren't at risk of bein
 
 ## Install
 
-**Download an installer:** open the repository's **Actions** tab, then **Build Jarvis Poster**, then the latest run. Scroll to **Artifacts** and download:
+**Download an installer** from the repository's **Releases** page (newest "Jarvis Poster" release, under **Assets**):
 
 | Your computer | File | How to install |
 |---|---|---|
-| Windows | `Jarvis-Poster-Windows` → `Jarvis Poster Setup 1.0.0.exe` | Run it. It adds a desktop shortcut. If SmartScreen appears, click **More info → Run anyway** (the app isn't code-signed). |
-| Mac | `Jarvis-Poster-Mac` → `.dmg` | Drag the app to Applications. The first time, **right-click → Open** (the app isn't notarized). |
-| Linux | `Jarvis-Poster-Linux` → `.AppImage` | `chmod +x` the file, then double-click it. |
+| Windows | `Jarvis-Poster-Setup-<version>.exe` | Run it. It adds a desktop shortcut. If SmartScreen appears, click **More info → Run anyway** (the app isn't code-signed). |
+| Mac | `…-arm64.dmg` (M1–M4) or the other `.dmg` (Intel) | Drag the app to Applications. The first time, **right-click → Open** (the app isn't notarized). |
+| Linux | `.AppImage` | `chmod +x` the file, then double-click it. |
 
 **Or run it from source** (needs Node.js 20 or newer):
 
